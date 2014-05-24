@@ -30,3 +30,4 @@ For an example see **FSpwr_config.m**
 **Output**
 
 Data is written to the directory given in *cfg.outputPath*. Surfaces are in fsaverage space.
+Data is computed for 0, 10 and 20 mm smoothing.

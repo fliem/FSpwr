@@ -8,14 +8,14 @@ load('FSpwr.surfData.mat');
 oldOutPath= cfg.outputPath;
 outPathExists = 1;
 useNewOutPath = 0;
-% while outPathExists
-%     if exist(cfg.outputPath, 'dir') %outpath already exists try outPath+
-%         cfg.outputPath = [cfg.outputPath, '+'];
-%         useNewOutPath = 1;
-%     else
-%         outPathExists = 0;
-%     end
-% end
+while outPathExists
+    if exist(cfg.outputPath, 'dir') %outpath already exists try outPath+
+        cfg.outputPath = [cfg.outputPath, '+'];
+        useNewOutPath = 1;
+    else
+        outPathExists = 0;
+    end
+end
 mkdir(cfg.outputPath);
 if useNewOutPath
     disp(['ATTENTION: ', oldOutPath, ' exists.']);
