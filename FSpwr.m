@@ -8,14 +8,14 @@ load('FSpwr.surfData.mat');
 oldOutPath= cfg.outputPath;
 outPathExists = 1;
 useNewOutPath = 0;
-while outPathExists
-    if exist(cfg.outputPath, 'dir') %outpath already exists try outPath+
-        cfg.outputPath = [cfg.outputPath, '+'];
-        useNewOutPath = 1;
-    else
-        outPathExists = 0;
-    end
-end
+% while outPathExists
+%     if exist(cfg.outputPath, 'dir') %outpath already exists try outPath+
+%         cfg.outputPath = [cfg.outputPath, '+'];
+%         useNewOutPath = 1;
+%     else
+%         outPathExists = 0;
+%     end
+% end
 mkdir(cfg.outputPath);
 if useNewOutPath
     disp(['ATTENTION: ', oldOutPath, ' exists.']);
@@ -29,6 +29,11 @@ switch cfg.analysisType
     case 2
         cfg.power = 0;
 end
+
+if ~isfield(cfg,'diffInPercent')
+    cfg.diffInPercent = 0;
+end
+cfg.diffAsNum = cfg.difference;
 
 
 %check for forbidden values
@@ -56,7 +61,9 @@ end
 if (rem(cfg.N,1))
     error('N must be whole number');
 end
-
+if ~(cfg.diffInPercent == 0 || cfg.diffInPercent == 1)
+    error('cfg.diffInPercent must either be 0 or 1');
+end
 %%
 disp('************************');
 disp('Starting Power Analysis');
@@ -71,14 +78,25 @@ if (cfg.measure == 4) %subcortical
     nSmoothing = 1; %set smoothing to 1, because no smoothing is applied
 end
 
+
+
 for h = 1:nHemis
     disp(brain.hemi{h});
     for s = 1:nSmoothing
         disp(brain.smoothing{s});
+        
+        %if cfg.diffInPercent==1 a vertex-wise percental difference is entered into
+        %power analysis
+        if cfg.diffInPercent == 1
+            cfg.differenceAbs = brain.M{cfg.measure,h,s} .* cfg.difference .* .01;
+        else
+            cfg.differenceAbs = cfg.difference;
+        end
+
         switch cfg.analysisType
             case 1 % A-priori -> calc. N
-                out{h,s}.reqN = aPriori(cfg.test,cfg.alpha, cfg.power, cfg.tail, cfg.difference, brain.sd{cfg.measure,h,s}, brain.rho{cfg.measure,h,s});
-                out{h,s}.actualPower = postHoc(cfg.test, out{h,s}.reqN, cfg.alpha, cfg.tail, cfg.difference, brain.sd{cfg.measure,h,s}, brain.rho{cfg.measure,h,s});
+                out{h,s}.reqN = aPriori(cfg.test,cfg.alpha, cfg.power, cfg.tail, cfg.differenceAbs, brain.sd{cfg.measure,h,s}, brain.rho{cfg.measure,h,s});
+                out{h,s}.actualPower = postHoc(cfg.test, out{h,s}.reqN, cfg.alpha, cfg.tail, cfg.differenceAbs, brain.sd{cfg.measure,h,s}, brain.rho{cfg.measure,h,s});
                 if (cfg.measure == 4) % subcortical
                     write_subcort_outputFile(cfg,brain, out);
                 else
@@ -87,7 +105,7 @@ for h = 1:nHemis
                 end
                 
             case 2 % Post-hoc
-                out{h,s}.actualPower = postHoc(cfg.test, cfg.N, cfg.alpha, cfg.tail, cfg.difference, brain.sd{cfg.measure,h,s}, brain.rho{cfg.measure,h,s});
+                out{h,s}.actualPower = postHoc(cfg.test, cfg.N, cfg.alpha, cfg.tail, cfg.differenceAbs, brain.sd{cfg.measure,h,s}, brain.rho{cfg.measure,h,s});
                 if (cfg.measure == 4) % subcortical
                     write_subcort_outputFile(cfg,brain, out);
                 else
@@ -224,7 +242,7 @@ if (size(N,2) == 1) %if N == int make vector
     N = N * ones(size(sd));
 end
 dz = delta ./ sd;
-d= dz .* sqrt((N.^2) ./ (2*N));
+d = dz .* sqrt((N.^2) ./ (2*N));
 isNaN = find(isnan(d));
 d(isNaN) = 0;
 df = 2*N - 2;
@@ -238,8 +256,8 @@ function pow = calcPower_paired(N,alpha,tail,delta,sd,rho)
 if (size(N,2) == 1) %if N == int make vector
     N = N * ones(size(sd));
 end
-dz=delta ./ sqrt(2*sd.^2 - 2*rho.*sd.^2);
-d= dz .* sqrt(N);
+dz = delta ./ sqrt(2*sd.^2 - 2*rho.*sd.^2);
+d = dz .* sqrt(N);
 isNaN = find(isnan(d));
 d(isNaN) = 0;
 df = N - 1;
@@ -258,12 +276,17 @@ fprintf(fid, 'FSpwr.m * Freesurfer power analysis * F. Liem\n');
 fprintf(fid,'See %s for surface overlays in fsaverage space\n', cfg.outputPath);
 fprintf(fid,'View, e.g., with "tksurfer fsaverage lh inflated -overlay lh.[...].smoothing0.mgh"\n\n');
 
+if cfg.diffInPercent == 1
+    measStr = 'Percent';
+else
+    measStr = sprintf('mm%u',cfg.measure);
+end
 switch cfg.analysisType
     case 1 %aPriori
         fprintf(fid,'\n**********************\n');
         fprintf(fid, 'A Priori Analysis\n');
         fprintf(fid,'**********************\n');
-        fprintf(fid, '%s: %s: target Power = %f; alpha = %f; absolute difference (in mm%u) = %f; %d-tailed\n\n', brain.meas{cfg.measure},cfg.test, cfg.power, cfg.alpha,cfg.measure, cfg.difference, cfg.tail);
+        fprintf(fid, '%s: %s: target Power = %f; alpha = %f; difference (in %s) = %f; %d-tailed\n\n', brain.meas{cfg.measure},cfg.test, cfg.power, cfg.alpha, measStr, cfg.diffAsNum, cfg.tail);
         
         if strcmp(cfg.test,'two-sample')
             fprintf(fid,'N is N per group!\n\n');
@@ -283,7 +306,7 @@ switch cfg.analysisType
         fprintf(fid,'\n**********************\n');
         fprintf(fid, 'Post-hoc Analysis\n');
         fprintf(fid,'**********************\n');
-        fprintf(fid, '%s: %s: N = %d; alpha = %f; absolute difference (in mm%u) = %f; %d-tailed\n\n', brain.meas{cfg.measure},cfg.test, cfg.N, cfg.alpha,cfg.measure, cfg.difference, cfg.tail);
+        fprintf(fid, '%s: %s: N = %d; alpha = %f; difference (in %s) = %f; %d-tailed\n\n', brain.meas{cfg.measure},cfg.test, cfg.N, cfg.alpha, measStr, cfg.diffAsNum, cfg.tail);
         
         if strcmp(cfg.test,'two-sample')
             fprintf(fid,'N is N per group!\n\n');
@@ -327,12 +350,18 @@ fid = fopen(fullfile(cfg.outputPath,[ brain.meas{cfg.measure},'.',cfg.test,'ROIs
 fprintf(fid,'%s %u:%u\n',date,ck(4),ck(5));
 fprintf(fid, 'FSpwr.m * Freesurfer power analysis * F. Liem\n');
 
+if cfg.diffInPercent == 1
+    measStr = 'Percent';
+else
+    measStr = sprintf('mm3');
+end
+
 switch cfg.analysisType
     case 1 %aPriori
         fprintf(fid,'\n**********************\n');
         fprintf(fid, 'A Priori Analysis\n');
         fprintf(fid,'**********************\n');
-        fprintf(fid, '%s: %s: target Power = %f; alpha = %f; absolute difference (in mm3) = %f; %d-tailed\n\n', brain.meas{cfg.measure},cfg.test, cfg.power, cfg.alpha, cfg.difference, cfg.tail);
+        fprintf(fid, '%s: %s: target Power = %f; alpha = %f; difference (in %s) = %f; %d-tailed\n\n', brain.meas{cfg.measure},cfg.test, cfg.power, cfg.alpha, measStr, cfg.diffAsNum, cfg.tail);
         if strcmp(cfg.test,'two-sample')
             fprintf(fid,'N is N per group!\n\n');
         end
@@ -345,7 +374,7 @@ switch cfg.analysisType
         fprintf(fid,'\n**********************\n');
         fprintf(fid, 'Post-hoc Analysis\n');
         fprintf(fid,'**********************\n');
-        fprintf(fid, '%s: %s: N = %d; alpha = %f; absolute difference (in mm3) = %f; %d-tailed\n\n', brain.meas{cfg.measure},cfg.test, cfg.N, cfg.alpha, cfg.difference, cfg.tail);
+        fprintf(fid, '%s: %s: N = %d; alpha = %f; difference (in %s) = %f; %d-tailed\n\n', brain.meas{cfg.measure},cfg.test, cfg.N, cfg.alpha, measStr, cfg.diffAsNum, cfg.tail);
         if strcmp(cfg.test,'two-sample')
             fprintf(fid,'N is N per group!\n\n');
         end

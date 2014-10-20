@@ -58,14 +58,18 @@ cfg.analysisType = 1;
 % cfg.tail (1: one-tailed, 2: two-tailed)
 % cfg.power (is 1-beta, e.g., 0.8)
 % cfg.N (sample size per group)
-% cfg.difference (absolute differences between groups, e.g., in mm)
-%
+% cfg.difference (differences between groups, e.g., in mm, or in Percent difference - see cfg.diffInPercent)
+% cfg.diffInPercent (   0: enter absolute difference, e.g., in mm
+%                       1: enter vertex-wise difference in Percent;
+%                            e.g.:cfg.diffInPercent=1; cfg.difference=10;
+%                            calculates power for a vertex-specific
+%                            difference of 10%
 
 cfg.alpha = .05;
 cfg.tail = 2;
 cfg.power = .8;
 cfg.difference = 0.25;
- 
+cfg.diffInPercent = 0; 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 % V. Run analysis with FSpwr(cfg);
 
