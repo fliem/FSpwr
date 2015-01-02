@@ -2,7 +2,7 @@
 A tool to perform statistical power analyses for FreeSurfer data
 --
 
-See Liem et al. (submitted). Reliability and power analysis of cortical and subcortical FreeSurfer metrics.
+**Liem, F., et al., Reliability and statistical power analysis of cortical and subcortical FreeSurfer metrics in a large sample of healthy elderly, NeuroImage (2014), http://dx.doi.org/10.1016/j.neuroimage.2014.12.035**
 
 In this repository you will find
 - 1) surface data of the reliability analysis.
